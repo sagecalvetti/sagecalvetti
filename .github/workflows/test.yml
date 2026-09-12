@@ -1,0 +1,48 @@
+name: CI Pipeline
+on: [push, pull_request]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        if: hashFiles('package-lock.json') != ''
+        run: npm ci
+
+      - name: Lint
+        if: hashFiles('package-lock.json') != ''
+        run: npm run lint
+
+      - name: Build / Type-check
+        if: hashFiles('package-lock.json') != ''
+        run: npm run build
+
+      - name: Test
+        if: hashFiles('package-lock.json') != ''
+        run: npm test
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Node ${{ matrix.node-version }}: tests completed (or skipped if no manifest)." >> $GITHUB_STEP_SUMMARY
